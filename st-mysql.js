@@ -46,7 +46,9 @@ function query(task) {
    });
 }
 module.exports = function (pool) {
-   if (pool.constructor.name === 'Object' && pool.host) {
+   let promise = pool && pool.constructor.name === 'PromisePool';
+   let object = pool && pool.constructor.name === 'Object';
+   if (!promise && object && object.host) {
       pool = require('mysql2/promise').createPool(pool);
    }
    return query.bind(pool);
