@@ -48,7 +48,7 @@ function query(task) {
 module.exports = function (pool) {
    let promise = pool && pool.constructor.name === 'PromisePool';
    let object = pool && pool.constructor.name === 'Object';
-   if (!promise && object && object.host) {
+   if (!promise && object && pool.host) {
       pool = require('mysql2/promise').createPool(pool);
    }
    return query.bind(pool);
