@@ -1,17 +1,33 @@
 ```js
-// npm install mysql2 st-mysql 해서 필요한 모듈 사전에 설치하자
-// 계정정보는 소스코드에 넣는것을 피하는게 좋다. 소스코드에 써놓고 github 같은곳에 공개로 올려버리면 안되니까
-const query = require('st-mysql')({ host: 'localhost', user: '사용자아이디', password: '패스워드', database: '디비이름' });
+// Install module by command below
+// $ npm install st-mysql
+// It would be better not to include your secret information of database in source code due to security issue as commiting to github
+const query = require('st-mysql')({ host: 'localhost', user: 'ACCOUNTID', password: 'PASSWORD', database: 'DBNAME' });
+const stAsync = require('st-async')
+stAsync.set_promise(true);
 
-(async () => {
-	let result = [
-		await query('select * from sessions where expires > 3'),
-		await query('select * from sessions where expires > ?', [3]),
-		await query('select * from sessions where expires > ?', [3], 'show processlist'),
-		await query('select * from sessions where expires > ?', [3], 'select * from sessions where expires > ?', [3000]),
-		await query(['select * from sessions where expires > ?', [3], 'select * from sessions where expires > ?', [3000]])
-	];
-	console.log(JSON.stringify(result, undefined, 2));
-	process.exit();
-})();
+// Example 1
+stAsync(
+    a => query('DROP TABLE IF EXISTS kkk'),
+    a => query('create table kkk ( kkk text ) default charset=utf8'),
+    a => query('insert into kkk (kkk) values (?)', ['안녕하세요']),
+    a => query('select * from kkk'),
+    stAsync.finally(list => {
+        console.log(list.flat()); // All resolved responses of queries until now are in list
+    })
+)
+
+// Example 2
+// It would be rolled back all things if one of queries in query queue didn't work for some error
+stAsync(
+    a => query(
+        'DROP TABLE IF EXISTS kkk',
+        'create table kkk ( kkk text ) default charset=utf8',
+        'insert into kkk (kkk) values (?)', ['안녕하세요'],
+        'select * from kkk'
+    ),
+    stAsync.finally(list => {
+        console.log(list.flat()); // All resolved responses of queries until now are in list
+    })
+)
 ```
