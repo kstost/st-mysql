@@ -89,10 +89,5 @@ module.exports = function (pool) {
       }
       pool = require('mysql2/promise').createPool(pool);
    }
-   let newf = query.bind(pool);
-   if (encode) {
-      newf.l2u = l2u;
-      newf.u2l = u2l;
-   }
-   return newf;
+   return query.bind(pool);
 };
