@@ -1,6 +1,6 @@
 {
   "name": "st-mysql",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "",
   "main": "st-mysql.js",
   "scripts": {
@@ -11,6 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "mysql2": "^2.1.0",
+    "iconv": "^2.3.5",
     "st-async": "^1.1.0"
   }
 }
