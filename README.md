@@ -49,6 +49,10 @@ stAsync(
    a => query.select(null, 'x_test_table', 'where name like ?', ['%❤️%']),
    a => query.count('x_test_table'),
    a => query.count('x_test_table', 'where text like ?', ['%❤️%']),
+   a => query.drop('x_test_table'),
+   a => query.optimize('x_test_table'),
+   a => query.table_schema('x_test_table'),
+   a => query.truncate('x_test_table'),
    stAsync.finally(list => {
       console.log(list.flat()); // All resolved responses of queries until now are in list
    })
