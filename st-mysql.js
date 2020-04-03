@@ -1,5 +1,5 @@
 var Iconv = require('iconv').Iconv;
-
+let config = {};
 let charset;
 let encode;
 
@@ -66,6 +66,9 @@ function query(task) {
                   result[result.length] = resq[0];
                }
                await con.commit();
+               if(config.flat && result && result.length === 1) {
+                  result = result.flat();
+               }
             } catch (err) {
                await con.rollback();
                result = err;
@@ -82,6 +85,7 @@ module.exports = function (pool) {
    let promise = pool && pool.constructor.name === 'PromisePool';
    let object = pool && pool.constructor.name === 'Object';
    if (!promise && object && pool.host) {
+      config = JSON.parse(JSON.stringify(pool));
       if (pool && pool.encode) {
          charset = pool.charset;
          encode = pool.encode;
