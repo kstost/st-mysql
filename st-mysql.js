@@ -1,19 +1,17 @@
 var Iconv = require('iconv').Iconv;
 let config = {};
-let charset;
-let encode;
 
 function l2u(content) {
-   if (encode && (typeof content === 'string')) {
-      return new Iconv(encode, charset).convert(content).toString(encode);
+   if (config.encode && (typeof content === 'string')) {
+      return new Iconv(config.encode, config.charset).convert(content).toString(config.encode);
    } else {
       return content;
    }
 }
 
 function u2l(content) {
-   if (encode && (typeof content === 'string')) {
-      return new Iconv(charset, encode).convert(content).toString(encode);
+   if (config.encode && (typeof content === 'string')) {
+      return new Iconv(config.charset, config.encode).convert(content).toString(config.encode);
    } else {
       return content;
    }
@@ -49,13 +47,13 @@ function query(task) {
                task = ntask;
                for (let i = 0; i < task.length; i++) {
                   let tak = task[i];
-                  if (encode) {
+                  if (config.encode) {
                      tak[0] = u2l(tak[0]);
                      tak[1] = tak[1].map(a => u2l(a));
                   }
                   let resq = await con.query(tak[0], tak[1]);
                   if (!result) { result = []; }
-                  if (encode) {
+                  if (config.encode) {
                      let keys;
                      for (let j = 0; j < resq[0].length; j++) {
                         let il = resq[0][j];
@@ -67,7 +65,7 @@ function query(task) {
                }
                await con.commit();
                if (config.flat && result && result.length === 1) {
-                  result = result.flat();
+                  result = result[0];
                }
             } catch (err) {
                await con.rollback();
@@ -135,7 +133,8 @@ function inline_results(nquery, query, imode) {
 }
 function ask_inline(query, fieldk, field, nquery) {
    if (query === 'desc') {
-      query += ' ' + field;
+      // query += ' ' + field;
+      query = 'show full columns from ' + field;
       field = '';
    } else {
       if (field) { query += ' like ?'; field = '%' + field + '%'; }
@@ -148,12 +147,8 @@ module.exports = function (pool) {
    let object = pool && pool.constructor.name === 'Object';
    if (!promise && object && pool.host) {
       config = JSON.parse(JSON.stringify(pool));
-      if (pool && pool.encode) {
-         charset = pool.charset;
-         encode = pool.encode;
-         delete pool.encode;
-         delete pool.flat;
-      }
+      delete pool.encode;
+      delete pool.flat;
       pool = require('mysql2/promise').createPool(pool);
    }
    let nquery = query.bind(pool);
@@ -164,6 +159,23 @@ module.exports = function (pool) {
          return new Promise(r => { r(e) });
       }
    };
+   nquery.table_schema = tablename => {
+      return (async () => {
+         try {
+            if (!tablename) {
+               throw 'table name should be given';
+            }
+            let ad = await nquery('show create table ' + tablename);
+            if (ad.length === 1) {
+               ad = ad[0]['Create Table'];
+               ad = ad.split('\n').join('');
+            }
+            return ad;
+         } catch (e) {
+            return e;
+         }
+      })();
+   }
    nquery.show_variables = field => {
       try {
          return ask_inline('show variables', 'Variable_name', field, nquery)
@@ -192,10 +204,37 @@ module.exports = function (pool) {
          return new Promise(r => { r(e) });
       }
    };
+   nquery.truncate = tablename => {
+      try {
+         if (!tablename) { throw 'tablename should be given'; }
+         return nquery('truncate table ' + tablename)
+      } catch (e) {
+         return new Promise(r => { r(e) });
+      }
+   };
+   nquery.optimize = tablename => {
+      try {
+         if (!tablename) { throw 'tablename should be given'; }
+         return nquery('optimize table ' + tablename)
+      } catch (e) {
+         return new Promise(r => { r(e) });
+      }
+   };
+   nquery.drop = tablename => {
+      try {
+         if (!tablename) { throw 'tablename should be given'; }
+         return nquery('drop table ' + tablename)
+      } catch (e) {
+         return new Promise(r => { r(e) });
+      }
+   };
    nquery.delete = (tablename, where, wvalues) => {
       try {
+         if (where && where.indexOf('?') > -1 && !wvalues) { throw 'wvalues is needed'; }
+         if (!where && wvalues) { throw 'where is needed'; }
+         if (!tablename) { throw 'table name is needed'; }
          if (!where) { where = ''; }
-         let query_template = 'delete from ' + tablename + ' ' + where;
+         let query_template = ['delete', 'from', tablename, where].join(' ');
          let llm = wvalues ? wvalues : [];
          return new Promise(r => {
             (async () => { let rr = (await nquery(query_template, llm)); r(rr.length === 1 ? rr[0] : rr) })();
@@ -206,26 +245,29 @@ module.exports = function (pool) {
    }
    nquery.select = (select_list, tablename, where, wvalues) => {
       try {
-         if (!select_list || select_list.length === 0) {
-            select_list = ['*'];
-         }
+         if (where && where.indexOf('?') > -1 && !wvalues) { throw 'wvalues is needed'; }
+         if (!where && wvalues) { throw 'where is needed'; }
+         if (!tablename) { throw 'table name is needed'; }
+         if (!select_list || select_list.length === 0) { select_list = ['*']; }
          if (!where) { where = ''; }
-         let query_template = 'select ' + (select_list.join(',')) + ' from ' + tablename + ' ' + where;
+         let query_template = ['select', (select_list.join(',')), 'from', tablename, where].join(' ');
          return nquery(query_template, wvalues ? wvalues : []);
       } catch (e) {
          return new Promise(r => { r(e) });
       }
    }
    nquery.count = (tablename, where, wvalues) => {
-      let cnt = -1;
+      let cnt;
       return (async () => {
          try {
+            if (!tablename) { throw 'table name is needed'; }
+            if (where && where.indexOf('?') > -1 && !wvalues) { throw 'wvalues is needed'; }
+            if (!where && wvalues) { throw 'where is needed'; }
             let rt;
             if (!where) { where = ''; }
             let query_template = 'select count(*) as counter from ' + tablename + ' ' + where;
             rt = await nquery(query_template, wvalues ? wvalues : []);
-            cnt = rt.length === 1 && rt[0].counter;
-            if (!cnt) { cnt = 0; }
+            if (rt.length === 1) { cnt = rt[0].counter; } else { cnt = rt; }
             return cnt;
          } catch (e) {
             return e;
@@ -234,16 +276,25 @@ module.exports = function (pool) {
    }
    nquery.update = (tablename, values, where, wvalues) => {
       try {
+         if (!values) { throw 'values are not given'; }
+         if (values.constructor.name !== 'Object') { throw 'values must be an object'; }
+         if (where && where.indexOf('?') > -1 && !wvalues) { throw 'wvalues is needed'; }
+         if (!where && wvalues) { throw 'where is needed'; }
+         if (!tablename) { throw 'table name is needed'; }
+         if (!wvalues) { wvalues = []; }
+         if (!where) { where = ''; }
          let query = 'update ' + tablename;
          let keys = Object.keys(values);
+         if (keys.length === 0) { throw 'values are empty'; }
          let pm = [];
          keys.forEach(key => { pm.push(values[key]); });
-         if (!where) { where = ''; }
-         let query_template = (query + ' set ' + (keys.join('=?,') + '=?') + ' ' + where);
-         if (!wvalues) { wvalues = []; }
-         let llm = pm.concat(wvalues);
+         let query_template = [
+            query,
+            'set',
+            (keys.join('=?,') + '=?'),
+            where].join(' ');
          return new Promise(r => {
-            (async () => { let rr = (await nquery(query_template, llm)); r(rr.length === 1 ? rr[0] : rr) })();
+            (async () => { let rr = (await nquery(query_template, pm.concat(wvalues))); r(rr.length === 1 ? rr[0] : rr) })();
          });
       } catch (e) {
          return new Promise(r => { r(e) });
@@ -251,6 +302,8 @@ module.exports = function (pool) {
    };
    nquery.insert = (tablename, values) => {
       try {
+         if (!tablename) { throw 'table name is needed'; }
+         if (!values) { throw undefined; }
          if (values.constructor.name === 'Object') { values = [values]; }
          let fields;
          let llm = [];
