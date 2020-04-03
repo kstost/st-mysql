@@ -33,24 +33,24 @@ stAsync(
 )
 
 // Example 3
-(async () => {
-   let result = [
-      await query.show_tables(),
-      await query.show_variables(),
-      await query.show_processlist(),
-      await query.show_status(),
-      await query('drop table x_test_table'),
-      await query('create table x_test_table (cnt int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY, name varchar(255))'),
-      await query.desc('x_test_table'),
-      await query.insert('x_test_table', { name: '❤️' + Math.random() }),
-      await query.insert('x_test_table', [{ name: Math.random() }, { name: Math.random() }]),
-      await query.delete('x_test_table', 'where name like ?', ['%❤️%']),
-      await query.insert('x_test_table', { name: '❤️' + Math.random() }),
-      await query.select(null, 'x_test_table'),
-      await query.select(null, 'x_test_table', 'where name like ?', ['%❤️%']),
-      await query.count('x_test_table'),
-      await query.count('x_test_table', 'where text like ?', ['%❤️%']),
-   ];
-   res.send(result);
-})();
+stAsync(
+   a => query.show_tables(),
+   a => query.show_variables(),
+   a => query.show_processlist(),
+   a => query.show_status(),
+   a => query('drop table x_test_table'),
+   a => query('create table x_test_table (cnt int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY, name varchar(255))'),
+   a => query.desc('x_test_table'),
+   a => query.insert('x_test_table', { name: '❤️' + Math.random() }),
+   a => query.insert('x_test_table', [{ name: Math.random() }, { name: Math.random() }]),
+   a => query.delete('x_test_table', 'where name like ?', ['%❤️%']),
+   a => query.insert('x_test_table', { name: '❤️' + Math.random() }),
+   a => query.select(null, 'x_test_table'),
+   a => query.select(null, 'x_test_table', 'where name like ?', ['%❤️%']),
+   a => query.count('x_test_table'),
+   a => query.count('x_test_table', 'where text like ?', ['%❤️%']),
+   stAsync.finally(list => {
+      console.log(list.flat()); // All resolved responses of queries until now are in list
+   })
+)
 ```
