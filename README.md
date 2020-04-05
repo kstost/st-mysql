@@ -1,5 +1,6 @@
 ```js
 // Install module by command below
+// $ sudo apt install node-gyp # This can be needed for iconv module in this module
 // $ npm install st-mysql
 // It would be better not to include your secret information of database in source code due to security issue as commiting to github
 //
