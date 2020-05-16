@@ -1,4 +1,4 @@
-var Iconv = require('iconv').Iconv;
+let Iconv;
 let config = {};
 
 function l2u(content) {
@@ -147,8 +147,10 @@ module.exports = function (pool) {
    let object = pool && pool.constructor.name === 'Object';
    if (!promise && object && pool.host) {
       config = JSON.parse(JSON.stringify(pool));
+      Iconv = pool.Iconv;
       delete pool.encode;
       delete pool.flat;
+      delete pool.Iconv;
       pool = require('mysql2/promise').createPool(pool);
    }
    let nquery = query.bind(pool);
